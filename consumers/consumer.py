@@ -37,19 +37,21 @@ class KafkaConsumer:
         #
         #
         self.broker_properties = {
-                #
-                # TODO
-                #
+            'bootstrap.servers': "localhost:9092",
+            "group.id": f"{topic_name_pattern}",
+            "default.topic.config": {"auto.offset.reset": "earliest"},
         }
 
         # TODO: Create the Consumer, using the appropriate type.
         if is_avro is True:
-            self.broker_properties["schema.registry.url"] = "http://localhost:8081"
-            #self.consumer = AvroConsumer(...)
+            self.broker_properties["schema.registry.url"] = "http://schema-registry:8081"
+            self.consumer = AvroConsumer(
+                                self.broker_properties
+                            )
         else:
-            #self.consumer = Consumer(...)
-            pass
-
+            self.consumer = Consumer(
+                            self.broker_properties
+                        )
         #
         #
         # TODO: Configure the AvroConsumer and subscribe to the topics. Make sure to think about
@@ -62,17 +64,11 @@ class KafkaConsumer:
         """Callback for when topic assignment takes place"""
         # TODO: If the topic is configured to use `offset_earliest` set the partition offset to
         # the beginning or earliest
-        logger.info("on_assign is incomplete - skipping")
         for partition in partitions:
-            pass
-            #
-            #
-            # TODO
-            #
-            #
-
+            if self.offset_earliest is True:
+                partition.offset = confluent_kafka.OFFSET_BEGINNING
         logger.info("partitions assigned for %s", self.topic_name_pattern)
-        consumer.assign(partitions)
+        consumer.assign(partitions)            
 
     async def consume(self):
         """Asynchronously consumes data from kafka topic"""
@@ -91,8 +87,21 @@ class KafkaConsumer:
         # is retrieved.
         #
         #
-        logger.info("_consume is incomplete - skipping")
-        return 0
+        try:
+            msg = self.consumer.poll(10)
+            if msg:
+                if not msg.error():
+                    self.message_handler(msg)
+                    return 1
+                elif msg.error().code() != KafkaError._PARTITION_EOF:
+                    logger.error(msg.error())
+                    return 0
+            else:
+                logger.debug("no messages")
+                return 0
+        except SerializerError as e:
+            logger.error("Message deserialization failed for %s: %s" % (msg, e))
+            return 0
 
 
     def close(self):
@@ -102,3 +111,5 @@ class KafkaConsumer:
         # TODO: Cleanup the kafka consumer
         #
         #
+        logger.info("closing the consumer")
+        self.consumer.close()  

@@ -5,7 +5,7 @@ import time
 
 from confluent_kafka import avro
 from confluent_kafka.admin import AdminClient, NewTopic
-from confluent_kafka.avro import AvroProducer, CachedSchemaRegistryClient
+from confluent_kafka.avro import AvroProducer
 
 logger = logging.getLogger(__name__)
 
@@ -38,19 +38,13 @@ class Producer:
         #
         #
         self.broker_properties = {
-            # TODO
-            "kafka_url": [
-                "PLAINTEXT://localhost:9092",
-                "PLAINTEXT://localhost:9093",
-                "PLAINTEXT://localhost:9094"
-                ],
-            "rest_proxy": "http://localhost:8082",
-            "schema_registry": "http://localhost:8081",
-            "kafka_connect": "http://localhost:8083",
-            "ksql": "http://localhost:8088",
-            "postgresql": "jdbc:postgresql://localhost:5432/cta",
+            "bootstrap.servers": "PLAINTEXT://localhost:9092,PLAINTEXT://localhost:9093,PLAINTEXT://localhost:9094",
+            "schema.registry.url": "http://127.0.0.1:8081"
         }
-        self.client = AdminClient({"bootstrap.servers": self.broker_properties['kafka_url'][0]})
+
+        self.client = AdminClient(
+            {"bootstrap.servers": self.broker_properties["bootstrap.servers"]}
+        )
 
         # If the topic does not already exist, try to create it
         if self.topic_name not in Producer.existing_topics:
@@ -58,10 +52,11 @@ class Producer:
             Producer.existing_topics.add(self.topic_name)
 
         # TODO: Configure the AvroProducer
-        self.schema_registry = CachedSchemaRegistryClient({"url": self.broker_properties['schema_registry']})
-        self.producer = AvroProducer({"bootstrap.servers": self.broker_properties['kafka_url'][0]}, 
-            schema_registry=self.schema_registry)
-
+        self.producer = AvroProducer(
+            self.broker_properties,
+            default_key_schema=self.key_schema,
+            default_value_schema=self.value_schema            
+        )
 
     def create_topic(self):
         """Creates the producer topic if it does not already exist"""
@@ -72,12 +67,17 @@ class Producer:
         #
         #
         self.client.create_topics(
-            [NewTopic(topic=self.topic_name, num_partitions=self.num_partitions, replication_factor=self.num_replicas)]
+            [NewTopic(topic=self.topic_name, 
+                num_partitions=self.num_partitions, 
+                replication_factor=self.num_replicas)]
         )
-        logger.info(f"Successfully created topic: {self.topic_name}")
 
-    def time_millis(self):
-        return int(round(time.time() * 1000))
+        for topic, future in futures.items():   
+            try:    
+                future.result() 
+                logger.info(f"{self.topic_name} is created")    
+            except Exception as e:  
+                logger.error(f"{self.topic_name} is not created: {e}")
 
     def close(self):
         """Prepares the producer for exit by cleaning up the producer"""
@@ -86,9 +86,8 @@ class Producer:
         # TODO: Write cleanup code for the Producer here
         #
         #
-        self.close()
-
-        # logger.info("producer close incomplete - skipping")
+        self.producer.flush()
+        logger.info("producer closed")
 
     def time_millis(self):
         """Use this function to get the key for Kafka Events"""

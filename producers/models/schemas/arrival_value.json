@@ -6,17 +6,9 @@
     {"name": "station_id", "type": "int"},
     {"name": "train_id", "type": "string"},
     {"name": "direction", "type": "string"},
-    {"name": "line", 
-        "type": 
-            {"type": "enum", 
-            "name": "colors", 
-            "symbols": ["blue", "green", "red"]}},
-    {"name": "train_status", 
-        "type": 
-            {"type": "enum", 
-            "name": "status", 
-            "symbols": ["out_of_service", "in_service", "broken_down"]}},
+    {"name": "line", "type": "string"},
+    {"name": "train_status", "type": "string"},
     {"name": "prev_station_id", "type": ["null", "int"]}, 
-    {"name": "prev_direction", "type": ["null", "string"]}  
+    {"name": "prev_direction", "type": ["null", "string"]}
   ]
 }

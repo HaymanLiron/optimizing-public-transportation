@@ -17,33 +17,25 @@ class Station(Producer):
     key_schema = avro.load(f"{Path(__file__).parents[0]}/schemas/arrival_key.json")
 
     #
-    # TODO: Define this value schema in `schemas/arrival_value.json, then uncomment the below
+    # TODO: Define this value schema in `schemas/station_value.json, then uncomment the below
     #
     value_schema = avro.load(f"{Path(__file__).parents[0]}/schemas/arrival_value.json")
 
     def __init__(self, station_id, name, color, direction_a=None, direction_b=None):
         self.name = name
-        station_name = (
-            self.name.lower()
-            .replace("/", "_and_")
-            .replace(" ", "_")
-            .replace("-", "_")
-            .replace("'", "")
-        )
-
         #
         #
         # TODO: Complete the below by deciding on a topic name, number of partitions, and number of
         # replicas
         #
         #
-        topic_name = f"arrival.stations.{station_name}" # TODO: Come up with a better topic name
+        topic_name = "org.chicago.cta.station.v1" # TODO: Come up with a better topic name
         super().__init__(
             topic_name,
             key_schema=Station.key_schema,
             value_schema=Station.value_schema, # TODO: Uncomment once schema is defined
-            num_partitions=1,  # TODO: optimize
-            num_replicas=1,  # TODO: optimize
+            num_partitions=1,
+            num_replicas=1,
         )
 
         self.station_id = int(station_id)
@@ -57,26 +49,20 @@ class Station(Producer):
 
     def run(self, train, direction, prev_station_id, prev_direction):
         """Simulates train arrivals at this station"""
-        #
-        #
-        # TODO: Complete this function by producing an arrival message to Kafka
-        #
+        # produce an arrival message to Kafka
         self.producer.produce(
            topic=self.topic_name,
-           value={
-               "station_id": self.station_id,
-               "train_id": train.train_id,
-               "direction": direction,
-               "line": self.color,
-               "train_status": train.status,
-               "prev_station_id": prev_station_id,
-               "prev_direction": prev_direction,
-           },
-           value_schema=Station.value_schema,
            key={"timestamp": self.time_millis()},
-           key_schema=Station.key_schema
+           value={
+               'station_id': self.station_id,
+               'train_id': train.train_id,
+               'direction': direction,
+               'line': self.color.name,
+               'train_status': train.status.name,
+               'prev_station_id': prev_station_id,
+               'prev_direction': prev_direction,
+           },
         )
-
 
     def __str__(self):
         return "Station | {:^5} | {:<30} | Direction A: | {:^5} | departing to {:<30} | Direction B: | {:^5} | departing to {:<30} | ".format(
